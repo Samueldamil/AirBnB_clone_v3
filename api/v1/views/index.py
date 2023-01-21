@@ -1,15 +1,15 @@
 #!/usr/bin/python3
-"""Retrives number for each type"""
-
-from api.v1.views import app_views
+"""Retrieves number for each type"""
 from flask import jsonify
 from models import storage
+from api.v1.views import app_views
 
 
 @app_views.route("/status", strict_slashes=False)
-def status(self):
-	"""Return status"""
-	return jsonify({"status": "OK"})
+def status():
+    """Returns status"""
+    return jsonify({'status': 'OK'})
+
 
 @app_views.route("/stats", strict_slashes=False)
 def stats():
