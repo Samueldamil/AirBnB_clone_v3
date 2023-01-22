@@ -1,89 +1,53 @@
 #!/usr/bin/python3
-"""States views"""
-from flask import jsonify, make_response, abort, request
+"""
+    states.py file in v1/views
+"""
+from flask import abort, Flask, jsonify, request
 from api.v1.views import app_views
 from models import storage
 from models.state import State
 
 
-@app_views.route('/states',
-                 strict_slashes=False,
-                 methods=['GET', 'POST'])
-def view_states():
-    """Returns the list of all State objects"""
-    if request.method == 'POST':
-
-        # Get the attributes from the request
-        data = request.get_json()
-
-        if isinstance(data, dict):
-            pass
-        else:
-            return (jsonify({"error": "Not a JSON"}), 400)
-
-        if 'name' not in data.keys():
-            return jsonify({'error': 'Missing name'}), 400
-
-        if 'id' in data.keys():
-            data.pop("id")
-        if 'created_at' in data.keys():
-            data.pop("created_at")
-        if 'updated_at' in data.keys():
-            data.pop("updated_at")
-
-        # Create the object
-        obj = State(**data)
-
-        # Save the object in storage
-        storage.new(obj)
-        storage.save()
-        return jsonify(obj.to_dict()), 201
-
-    if request.method == 'GET':
-        states = storage.all("State")
-        list = []
-        for name, state in states.items():
-            list.append(state.to_dict())
-        return jsonify(list)
-
-
-@app_views.route('/states/<id>',
-                 strict_slashes=False,
-                 methods=['GET', 'DELETE', 'PUT'])
-def view_state(id):
-    """Returns a list of all State objects, or delete an
-    object if a given id
+@app_views.route("/states", methods=["GET", "POST"], strict_slashes=False)
+def handle_states():
     """
-    state = storage.get(State, id)
-
-    if state is None:
-        return abort(404)
-
+        Method to return a JSON representation of all states
+    """
     if request.method == 'GET':
-        state = state.to_dict()
-        return jsonify(state)
+        return jsonify([val.to_dict() for val in storage.all('State')
+                        .values()])
+    elif request.method == 'POST':
+        post = request.get_json()
+        if post is None or type(post) != dict:
+            return jsonify({'error': 'Not a JSON'}), 400
+        elif post.get('name') is None:
+            return jsonify({'error': 'Missing name'}), 400
+        new_state = State(**post)
+        new_state.save()
+        return jsonify(new_state.to_dict()), 201
 
-    if request.method == 'DELETE':
-        storage.delete(state)
+
+@app_views.route("/states/<state_id>", methods=["GET", "PUT", "DELETE"],
+                 strict_slashes=False)
+def handle_state_by_id(state_id):
+    """
+        Method to return a JSON representation of a state
+    """
+    state_by_id = storage.get(State, state_id)
+    if state_by_id is None:
+        abort(404)
+    elif request.method == 'GET':
+        return jsonify(state_by_id.to_dict())
+    elif request.method == 'DELETE':
+        storage.delete(state_by_id)
         storage.save()
         return jsonify({}), 200
-
-    if request.method == 'PUT':
-        data = request.get_json()
-        if isinstance(data, dict):
-            pass
-        else:
-            return (jsonify({"error": "Not a JSON"}), 400)
-
-        if 'id' in data.keys():
-            data.pop("id")
-        if 'created_at' in data.keys():
-            data.pop("created_at")
-        if 'updated_at' in data.keys():
-            data.pop("updated_at")
-
-        for key, value in data.items():
-            setattr(state, key, value)
-
+    elif request.method == 'PUT':
+        put = request.get_json()
+        if put is None or type(put) != dict:
+            return jsonify({'message': 'Not a JSON'}), 400
+        for key, value in put.items():
+            if key not in ['id', 'created_at', 'updated_at']:
+                setattr(state_by_id, key, value)
         storage.save()
-        return jsonify(state.to_dict())
+        return jsonify(state_by_id.to_dict()), 200
